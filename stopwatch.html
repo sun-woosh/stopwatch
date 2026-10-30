@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>염주 스탑워치</title>
+<style>
+  :root {
+    --paper: #f1e9d6;
+    --paper-deep: #e6dac0;
+    --ink: #3a2a1d;
+    --muted: #8a7558;
+    --gold: #b88a2e;
+    --gold-soft: #d9b45a;
+    --cinnabar: #a23b2d;
+    --moss: #5b6b3f;
+    --line: #cdbd98;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(ellipse at 50% 0%, #faf4e4 0%, var(--paper) 55%, var(--paper-deep) 100%);
+    color: var(--ink);
+    font-family: "Noto Serif KR", "Batang", "Malgun Gothic", serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 440px; text-align: center; }
+  h1 {
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: .5em;
+    color: var(--muted);
+    margin-bottom: 18px;
+    padding-left: .5em;
+  }
+
+  /* 염주 + 불상 */
+  .altar {
+    position: relative;
+    width: 100%;
+    max-width: 380px;
+    aspect-ratio: 1;
+    margin: 0 auto;
+  }
+  .altar svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .aura {
+    position: absolute;
+    left: 15%; top: 15%;
+    width: 70%; height: 70%;
+    border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 40%, #fbf5e3, #eadfc3);
+    box-shadow:
+      0 0 0 1px var(--line),
+      0 0 0 6px var(--paper),
+      0 0 0 7px var(--gold-soft),
+      0 10px 30px rgba(90, 60, 20, .18);
+  }
+  .altar .aura svg.buddha { position: static; width: 100%; height: 100%; display: block; }
+  #ring { transform-origin: 200px 200px; transition: transform .55s cubic-bezier(.3, 1.4, .5, 1); }
+  #ring.instant { transition: none; }
+  .bead { transition: fill .3s; }
+
+  .display {
+    font-variant-numeric: tabular-nums;
+    font-family: "Noto Serif KR", "Batang", Georgia, serif;
+    font-size: clamp(44px, 14vw, 64px);
+    font-weight: 300;
+    letter-spacing: 1px;
+    margin-top: 22px;
+  }
+  .rounds {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: .2em;
+    min-height: 1.4em;
+  }
+
+  .dharma {
+    margin: 22px auto 0;
+    max-width: 340px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    transition: opacity .6s;
+  }
+  .dharma.fade { opacity: 0; }
+  .dharma blockquote {
+    font-size: 16px;
+    line-height: 1.7;
+    word-break: keep-all;
+    color: var(--ink);
+  }
+  .dharma figcaption {
+    margin-top: 8px;
+    font-size: 12px;
+    letter-spacing: .1em;
+    color: var(--muted);
+  }
+  .controls { display: flex; justify-content: center; gap: 20px; margin: 22px 0 26px; }
+  button {
+    min-width: 110px;
+    padding: 12px 0;
+    border-radius: 999px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 17px;
+    letter-spacing: .3em;
+    padding-left: .3em;
+    cursor: pointer;
+    transition: background .15s, color .15s, transform .08s, opacity .15s;
+  }
+  button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  button:active:not(:disabled) { transform: scale(.96); }
+  button:disabled { opacity: .35; cursor: default; }
+  #startStop { background: var(--moss); border-color: var(--moss); color: #f6f0dc; }
+  #startStop:hover { background: #4a5833; color: #f6f0dc; }
+  #startStop.running { background: var(--cinnabar); border-color: var(--cinnabar); }
+  #startStop.running:hover { background: #8a2f23; }
+
+  .laps { list-style: none; border-top: 1px solid var(--line); text-align: left; }
+  .laps li {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+    font-size: 16px;
+  }
+  .laps li.best { color: var(--moss); }
+  .laps li.worst { color: var(--cinnabar); }
+  .hint { margin-top: 22px; color: var(--muted); font-size: 12px; letter-spacing: .08em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>念 珠 時 計</h1>
+
+  <div class="altar">
+    <svg viewBox="0 0 400 400" aria-hidden="true">
+      <defs>
+        <radialGradient id="woodGrad" cx="35%" cy="30%" r="75%">
+          <stop offset="0" stop-color="#b9885a"/>
+          <stop offset="1" stop-color="#4a2c17"/>
+        </radialGradient>
+        <radialGradient id="goldGrad" cx="35%" cy="30%" r="75%">
+          <stop offset="0" stop-color="#f4dc8c"/>
+          <stop offset="1" stop-color="#a97a1c"/>
+        </radialGradient>
+        <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="3.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- 연꽃 포인터 (고정) -->
+      <g transform="translate(200 7)" fill="var(--gold)">
+        <path d="M0 -5 C6 -1 6 6 0 11 C-6 6 -6 -1 0 -5Z"/>
+        <path d="M-3 4 C-12 2 -14 -4 -9 -8 C-6 -3 -4 0 -3 4Z" opacity=".75"/>
+        <path d="M3 4 C12 2 14 -4 9 -8 C6 -3 4 0 3 4Z" opacity=".75"/>
+      </g>
+      <g id="ring"></g>
+    </svg>
+    <div class="aura">
+      <svg class="buddha" viewBox="0 0 200 200" role="img" aria-label="좌불상">
+        <defs>
+          <radialGradient id="skin" cx="42%" cy="35%" r="72%">
+            <stop offset="0" stop-color="#f8e3a0"/>
+            <stop offset=".5" stop-color="#d4a748"/>
+            <stop offset="1" stop-color="#8a6320"/>
+          </radialGradient>
+          <linearGradient id="robe" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#dcb457"/>
+            <stop offset=".5" stop-color="#b3832b"/>
+            <stop offset="1" stop-color="#6d4a14"/>
+          </linearGradient>
+          <linearGradient id="robeDeep" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#a97a26"/>
+            <stop offset="1" stop-color="#5b3e10"/>
+          </linearGradient>
+          <linearGradient id="petalGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#e8c878"/>
+            <stop offset="1" stop-color="#9a6e20"/>
+          </linearGradient>
+          <radialGradient id="haloGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="#fff8dc" stop-opacity=".95"/>
+            <stop offset="1" stop-color="#f1d58c" stop-opacity=".3"/>
+          </radialGradient>
+          <pattern id="curls" width="4.2" height="4.2" patternUnits="userSpaceOnUse">
+            <rect width="4.2" height="4.2" fill="#4a3310"/>
+            <circle cx="2.1" cy="2.1" r="1.6" fill="#86601f"/>
+            <circle cx="1.6" cy="1.6" r=".55" fill="#dbb458"/>
+          </pattern>
+          <path id="petal" d="M-9.5 14 C-11 4 -3 -2 0 -11 C3 -2 11 4 9.5 14Z"/>
+        </defs>
+
+        <g transform="translate(18 16) scale(.82)" stroke="#57390e" stroke-width="1" stroke-linejoin="round" stroke-linecap="round">
+          <!-- 광배 -->
+          <circle cx="100" cy="58" r="41" fill="url(#haloGrad)" stroke="#d9b45a" stroke-width="1.2"/>
+          <circle cx="100" cy="58" r="47" fill="none" stroke="#d9b45a" stroke-width="5" stroke-dasharray="1 5.2" stroke-opacity=".7"/>
+          <circle cx="100" cy="58" r="52" fill="none" stroke="#d9b45a" stroke-width=".7"/>
+
+          <!-- 연화대 -->
+          <path d="M20 184 Q100 198 180 184 L178 191 Q100 205 22 191Z" fill="url(#robeDeep)"/>
+          <g fill="url(#petalGrad)" stroke-width=".8" opacity=".85">
+            <use href="#petal" x="37" y="168"/><use href="#petal" x="55" y="168"/><use href="#petal" x="73" y="168"/>
+            <use href="#petal" x="91" y="168"/><use href="#petal" x="109" y="168"/><use href="#petal" x="127" y="168"/>
+            <use href="#petal" x="145" y="168"/><use href="#petal" x="163" y="168"/>
+          </g>
+          <g fill="url(#petalGrad)" stroke-width=".9">
+            <use href="#petal" x="28" y="174"/><use href="#petal" x="46" y="174"/><use href="#petal" x="64" y="174"/>
+            <use href="#petal" x="82" y="174"/><use href="#petal" x="100" y="174"/><use href="#petal" x="118" y="174"/>
+            <use href="#petal" x="136" y="174"/><use href="#petal" x="154" y="174"/><use href="#petal" x="172" y="174"/>
+          </g>
+
+          <!-- 가부좌 다리 -->
+          <path d="M14 168 C10 150 32 138 62 134 L138 134 C168 138 190 150 186 168 C164 178 36 178 14 168Z" fill="url(#robe)"/>
+          <g fill="none" stroke-opacity=".55" stroke-width=".9">
+            <path d="M24 162 C46 152 72 152 94 162"/>
+            <path d="M176 162 C154 152 128 152 106 162"/>
+            <path d="M20 152 C42 142 68 140 88 144"/>
+            <path d="M180 152 C158 142 132 140 112 144"/>
+            <path d="M34 170 C60 164 80 166 96 172"/>
+            <path d="M166 170 C140 164 120 166 104 172"/>
+          </g>
+          <path d="M30 150 C40 142 54 138 66 137" fill="none" stroke="#fff3c0" stroke-opacity=".5" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M170 150 C160 142 146 138 134 137" fill="none" stroke="#fff3c0" stroke-opacity=".35" stroke-width="2.2" stroke-linecap="round"/>
+
+          <!-- 무릎 사이로 내려오는 가사 자락 -->
+          <path d="M70 136 C76 150 88 160 100 172 C112 160 124 150 130 136Z" fill="url(#robeDeep)"/>
+          <g fill="none" stroke-opacity=".6" stroke-width=".8">
+            <path d="M100 172 L100 140"/><path d="M90 150 Q94 162 100 172"/><path d="M110 150 Q106 162 100 172"/>
+            <path d="M80 142 Q86 156 100 172"/><path d="M120 142 Q114 156 100 172"/>
+          </g>
+
+          <!-- 상체 (피부) -->
+          <path d="M68 94 C63 108 65 124 72 138 L128 138 C135 124 137 108 132 94 C128 86 114 84 100 84 C86 84 72 86 68 94Z" fill="url(#skin)"/>
+          <g fill="none" stroke-opacity=".35" stroke-width=".8">
+            <path d="M100 112 L100 126"/>
+            <path d="M104 100 Q112 106 120 100"/>
+          </g>
+          <!-- 목 -->
+          <path d="M92 72 L90 88 C96 94 104 94 110 88 L108 72Z" fill="url(#skin)"/>
+          <g fill="none" stroke-opacity=".55" stroke-width=".7">
+            <path d="M91.5 79 Q100 82.5 108.5 79"/><path d="M91 84 Q100 88 109 84"/>
+          </g>
+
+          <!-- 가사: 왼쪽(관객 기준) -->
+          <path d="M93 83 C78 84 62 90 58 104 C54 120 56 134 62 142 L108 140 C104 134 98 118 96 106 C95 98 94 90 93 83Z" fill="url(#robe)"/>
+          <!-- 가사: 오른쪽 -->
+          <path d="M107 83 C122 84 138 90 142 104 C146 118 144 134 138 142 L122 140 C130 130 132 114 124 100 C118 92 112 88 107 83Z" fill="url(#robe)"/>
+          <g fill="none" stroke-opacity=".6" stroke-width=".8">
+            <path d="M84 90 C74 100 70 118 72 136"/>
+            <path d="M76 94 C66 104 64 120 66 138"/>
+            <path d="M90 100 C88 112 94 126 102 138"/>
+            <path d="M118 92 C128 102 132 118 128 138"/>
+            <path d="M126 96 C136 106 138 122 134 138"/>
+          </g>
+          <!-- 허리띠 -->
+          <path d="M60 128 C84 136 116 136 140 128 L142 142 C116 150 84 150 58 142Z" fill="url(#robeDeep)"/>
+          <path d="M70 134 C90 140 110 140 130 134" fill="none" stroke="#e8c878" stroke-opacity=".5" stroke-width=".8"/>
+
+          <!-- 올린 오른팔(관객 기준 오른쪽) -->
+          <path d="M138 92 C156 98 166 116 160 136 C154 146 138 144 130 138 C136 124 138 108 134 96Z" fill="url(#robe)"/>
+          <path d="M146 100 C152 108 154 122 148 132" fill="none" stroke-opacity=".55" stroke-width=".8"/>
+          <path d="M152 124 C160 116 162 106 160 96" fill="none" stroke="#57390e" stroke-width="11.5"/>
+          <path d="M152 124 C160 116 162 106 160 96" fill="none" stroke="url(#skin)" stroke-width="10"/>
+          <path d="M148 128 C154 134 162 130 162 122" fill="none" stroke="#57390e" stroke-width="1.2"/>
+          <!-- 손 -->
+          <path d="M153 96 C150 88 151 80 157 78 C165 77 169 86 166 96Z" fill="url(#skin)"/>
+          <g fill="none" stroke-linecap="round">
+            <path d="M158 80 L158.5 66" stroke="#57390e" stroke-width="4.6"/><path d="M158 80 L158.5 66" stroke="#dcb457" stroke-width="3.2"/>
+            <path d="M163 82 L165 70" stroke="#57390e" stroke-width="4.4"/><path d="M163 82 L165 70" stroke="#dcb457" stroke-width="3"/>
+            <path d="M166 87 L169 77" stroke="#57390e" stroke-width="4"/><path d="M166 87 L169 77" stroke="#dcb457" stroke-width="2.7"/>
+          </g>
+          <circle cx="152" cy="84" r="3.6" fill="none" stroke="#57390e" stroke-width="3.6"/>
+          <circle cx="152" cy="84" r="3.6" fill="none" stroke="#dcb457" stroke-width="2.2"/>
+
+          <!-- 무릎 위 손 (선정인) -->
+          <ellipse cx="97" cy="148" rx="19" ry="7" fill="url(#skin)"/>
+          <g fill="none" stroke-opacity=".6" stroke-width=".7">
+            <path d="M84 146 Q90 151 98 150"/><path d="M90 143 Q96 149 104 148"/><path d="M96 141 Q102 147 109 146"/>
+          </g>
+          <ellipse cx="112" cy="145" rx="5" ry="3" fill="url(#skin)" transform="rotate(-20 112 145)"/>
+
+          <!-- 귀 -->
+          <path d="M85 50 C79 50 77 58 79 66 C80 72 81.5 76 83 80 C85 74 86 66 85.5 58Z" fill="url(#skin)"/>
+          <path d="M115 50 C121 50 123 58 121 66 C120 72 118.5 76 117 80 C115 74 114 66 114.5 58Z" fill="url(#skin)"/>
+          <!-- 얼굴 -->
+          <path d="M84.5 54 C84.5 41 92 38 100 38 C108 38 115.5 41 115.5 54 C115.5 68 108.5 77 100 77 C91.5 77 84.5 68 84.5 54Z" fill="url(#skin)"/>
+          <!-- 나발과 육계 -->
+          <path d="M84 55 C81 38 88 29 100 29 C112 29 119 38 116 55 C115 49 108 45 100 45 C92 45 85 49 84 55Z" fill="url(#curls)"/>
+          <path d="M91 33 C90 22 94 17 100 17 C106 17 110 22 109 33 C106 29 94 29 91 33Z" fill="url(#curls)"/>
+          <circle cx="100" cy="17.5" r="2.4" fill="#f4dc8c" stroke-width=".7"/>
+          <!-- 이목구비 -->
+          <circle cx="100" cy="49.5" r="1.4" fill="#fff4cc" stroke-width=".5"/>
+          <path d="M89 53.5 Q94 50.5 98 53" fill="none" stroke-width=".9"/>
+          <path d="M102 53 Q106 50.5 111 53.5" fill="none" stroke-width=".9"/>
+          <path d="M90 58 Q94 61 98 58" fill="none" stroke-width="1.2"/>
+          <path d="M102 58 Q106 61 110 58" fill="none" stroke-width="1.2"/>
+          <path d="M100 55 L98.6 66 Q100 67.8 101.4 66" fill="none" stroke-width=".8"/>
+          <path d="M95.5 71 Q100 72.6 104.5 71 Q100 75.2 95.5 71Z" fill="#9a5a2c" stroke-width=".7"/>
+          <ellipse cx="94" cy="56" rx="5" ry="11" fill="#fff" fill-opacity=".13" stroke="none"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="display" id="display">00:00.00</div>
+  <div class="rounds" id="rounds">南無阿彌陀佛</div>
+
+  <figure class="dharma" id="dharma">
+    <blockquote id="quoteText"></blockquote>
+    <figcaption id="quoteSrc"></figcaption>
+  </figure>
+
+  <div class="controls">
+    <button id="lapReset" disabled>기록</button>
+    <button id="startStop">시작</button>
+  </div>
+  <ul class="laps" id="laps"></ul>
+  <p class="hint">Space 시작/정지 · L 기록 · R 초기화</p>
+</div>
+
+<script>
+  const BEADS = 108;
+  const STEP = 360 / BEADS;
+  const R = 172, C = 200;
+
+  const display = document.getElementById('display');
+  const roundsEl = document.getElementById('rounds');
+  const startStopBtn = document.getElementById('startStop');
+  const lapResetBtn = document.getElementById('lapReset');
+  const lapsEl = document.getElementById('laps');
+  const ring = document.getElementById('ring');
+
+  // 염주 알 만들기 (위쪽 12시 방향에서 시계 방향)
+  const beadEls = [];
+  const NS = 'http://www.w3.org/2000/svg';
+  const cord = document.createElementNS(NS, 'circle');
+  cord.setAttribute('cx', C); cord.setAttribute('cy', C); cord.setAttribute('r', R);
+  cord.setAttribute('fill', 'none'); cord.setAttribute('stroke', '#8a6a3d');
+  cord.setAttribute('stroke-width', '1');
+  ring.appendChild(cord);
+  for (let i = 0; i < BEADS; i++) {
+    const a = (i * STEP - 90) * Math.PI / 180;
+    const big = i % 27 === 0 && i !== 0;
+    const b = document.createElementNS(NS, 'circle');
+    b.setAttribute('cx', C + R * Math.cos(a));
+    b.setAttribute('cy', C + R * Math.sin(a));
+    b.setAttribute('r', big ? 6.2 : 4.4);
+    b.setAttribute('fill', 'url(#woodGrad)');
+    b.setAttribute('class', 'bead');
+    ring.appendChild(b);
+    beadEls.push(b);
+  }
+
+  // 시간의 유한함을 일깨우는 말씀 (20초마다 바뀜)
+  const QUOTES = [
+    ['게으르지 않음은 죽지 않는 길이요, 게으름은 죽음의 길이다.', '『법구경』'],
+    ['오늘 해야 할 일을 오늘 하라. 내일 죽음이 올지 누가 알겠는가.', '『일야현자경』'],
+    ['지나간 것을 쫓지 말고 오지 않은 것을 바라지 말라. 오직 지금 이 순간을 살라.', '『일야현자경』'],
+    ['생사의 일이 크고 무상이 빠르니, 시간은 사람을 기다리지 않는다. 삼가 방일하지 말라.', '선가(禪家)의 경책'],
+    ['모든 것은 덧없다. 게으름 없이 정진하라.', '부처님의 마지막 유훈'],
+  ];
+  const quoteBox = document.getElementById('dharma');
+  const quoteText = document.getElementById('quoteText');
+  const quoteSrc = document.getElementById('quoteSrc');
+  let quoteIdx = -1;
+
+  function showQuote(idx, instant) {
+    if (idx === quoteIdx) return;
+    quoteIdx = idx;
+    const apply = () => {
+      quoteText.textContent = QUOTES[idx][0];
+      quoteSrc.textContent = '— ' + QUOTES[idx][1];
+      quoteBox.classList.remove('fade');
+    };
+    if (instant) return apply();
+    quoteBox.classList.add('fade');
+    setTimeout(apply, 600);
+  }
+
+  let running = false;
+  let startTime = 0;
+  let elapsed = 0;
+  let lapStart = 0;
+  let laps = [];
+  let rafId = null;
+  let shownSec = -1;
+
+  function format(ms) {
+    const totalCs = Math.floor(ms / 10);
+    const cs = totalCs % 100;
+    const totalSec = Math.floor(totalCs / 100);
+    const s = totalSec % 60;
+    const m = Math.floor(totalSec / 60) % 60;
+    const h = Math.floor(totalSec / 3600);
+    const pad = n => String(n).padStart(2, '0');
+    return (h ? h + ':' : '') + pad(m) + ':' + pad(s) + '.' + pad(cs);
+  }
+
+  function now() {
+    return running ? elapsed + (performance.now() - startTime) : elapsed;
+  }
+
+  // 초가 바뀔 때마다 염주를 한 알씩 굴린다
+  function setBeads(sec, instant) {
+    if (sec === shownSec) return;
+    shownSec = sec;
+    if (instant) ring.classList.add('instant');
+    ring.style.transform = `rotate(${-sec * STEP}deg)`;
+    if (instant) { void ring.getBoundingClientRect(); ring.classList.remove('instant'); }
+
+    const active = sec % BEADS;
+    beadEls.forEach((b, i) => {
+      const isActive = i === active;
+      b.setAttribute('fill', isActive || i < active ? 'url(#goldGrad)' : 'url(#woodGrad)');
+      b.setAttribute('filter', isActive ? 'url(#glow)' : '');
+      b.setAttribute('opacity', i < active ? '.85' : '1');
+    });
+    showQuote(Math.floor(sec / 20) % QUOTES.length, instant || sec === 0);
+    const rounds = Math.floor(sec / BEADS);
+    roundsEl.textContent = rounds > 0
+      ? `${rounds}회전 · ${active} / ${BEADS}`
+      : (sec > 0 ? `${active} / ${BEADS}` : '南無阿彌陀佛');
+  }
+
+  function tick() {
+    const t = now();
+    display.textContent = format(t);
+    setBeads(Math.floor(t / 1000), false);
+    const current = lapsEl.querySelector('li.current span:last-child');
+    if (current) current.textContent = format(t - lapStart);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function renderLaps() {
+    lapsEl.innerHTML = '';
+    if (running || elapsed > 0) {
+      const li = document.createElement('li');
+      li.className = 'current';
+      li.innerHTML = `<span>${laps.length + 1}번째</span><span>${format(now() - lapStart)}</span>`;
+      lapsEl.appendChild(li);
+    }
+    const min = Math.min(...laps), max = Math.max(...laps);
+    for (let i = laps.length - 1; i >= 0; i--) {
+      const li = document.createElement('li');
+      if (laps.length >= 2) {
+        if (laps[i] === min) li.className = 'best';
+        else if (laps[i] === max) li.className = 'worst';
+      }
+      li.innerHTML = `<span>${i + 1}번째</span><span>${format(laps[i])}</span>`;
+      lapsEl.appendChild(li);
+    }
+  }
+
+  function updateButtons() {
+    startStopBtn.textContent = running ? '정지' : '시작';
+    startStopBtn.classList.toggle('running', running);
+    lapResetBtn.textContent = running || elapsed === 0 ? '기록' : '초기화';
+    lapResetBtn.disabled = !running && elapsed === 0;
+  }
+
+  function startStop() {
+    if (running) {
+      elapsed = now();
+      running = false;
+      cancelAnimationFrame(rafId);
+      display.textContent = format(elapsed);
+    } else {
+      startTime = performance.now();
+      running = true;
+      tick();
+    }
+    updateButtons();
+    renderLaps();
+  }
+
+  function lap() {
+    if (!running) return;
+    const t = now();
+    laps.push(t - lapStart);
+    lapStart = t;
+    renderLaps();
+  }
+
+  function reset() {
+    if (running) return;
+    elapsed = 0;
+    lapStart = 0;
+    laps = [];
+    display.textContent = format(0);
+    shownSec = -1;
+    setBeads(0, true);
+    renderLaps();
+    updateButtons();
+  }
+
+  startStopBtn.addEventListener('click', startStop);
+  lapResetBtn.addEventListener('click', () => running ? lap() : reset());
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); startStop(); }
+    else if (e.key === 'l' || e.key === 'L') lap();
+    else if (e.key === 'r' || e.key === 'R') reset();
+  });
+
+  setBeads(0, true);
+</script>
+</body>
+</html>
